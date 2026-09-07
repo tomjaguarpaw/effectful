@@ -27,6 +27,17 @@ main = defaultMain
 countdownExtra :: Integer -> Benchmark
 countdownExtra n = bgroup (show n)
   [
+#ifdef VERSION_mtl
+    bgroup "bluefin (local/static/state)"
+    [ bench "shallow" $ nf countdownBluefinLocalSt n
+    , bench "deep"    $ nf countdownBluefinLocalDeepSt n
+    ]
+  , bgroup "bluefin (local/static/stateM)"
+    [ bench "shallow" $ nf countdownBluefinLocalStM n
+    , bench "deep"    $ nf countdownBluefinLocalDeepStM n
+    ]
+  ,
+#endif
     bgroup "effectful (local/static/state)"
     [ bench "shallow" $ nf countdownEffectfulLocalSt n
     , bench "deep"    $ nf countdownEffectfulLocalDeepSt n
@@ -36,9 +47,21 @@ countdownExtra n = bgroup (show n)
     , bench "deep"    $ nf countdownEffectfulLocalDeepStM n
     ]
 #ifdef VERSION_mtl
+  , bgroup "bluefin (local/dynamic/labeled)"
+    [ bench "shallow" $ nf countdownBluefinLabeledDynLocal n
+    , bench "deep"    $ nf countdownBluefinLabeledDynLocalDeep n
+    ]
+  , bgroup "bluefin (shared/dynamic/labeled)"
+    [ bench "shallow" $ nf countdownBluefinLabeledDynShared n
+    , bench "deep"    $ nf countdownBluefinLabeledDynSharedDeep n
+    ]
   , bgroup "bluefin (local/dynamic/double)"
     [ bench "shallow" $ nf countdownBluefinDoubleDynLocal n
     , bench "deep"    $ nf countdownBluefinDoubleDynLocalDeep n
+    ]
+  , bgroup "bluefin (shared/dynamic/double)"
+    [ bench "shallow" $ nf countdownBluefinDoubleDynShared n
+    , bench "deep"    $ nf countdownBluefinDoubleDynSharedDeep n
     ]
 #endif
   , bgroup "effectful (local/dynamic/labeled)"
@@ -67,9 +90,17 @@ countdown n = bgroup (show n)
     [ bench "shallow" $ nf countdownBluefinLocal n
     , bench "deep"    $ nf countdownBluefinLocalDeep n
     ]
+  , bgroup "bluefin (shared/static)"
+    [ bench "shallow" $ nf countdownBluefinShared n
+    , bench "deep"    $ nf countdownBluefinSharedDeep n
+    ]
   , bgroup "bluefin (local/dynamic)"
     [ bench "shallow" $ nf countdownBluefinDynLocal n
     , bench "deep"    $ nf countdownBluefinDynLocalDeep n
+    ]
+  , bgroup "bluefin (shared/dynamic)"
+    [ bench "shallow" $ nf countdownBluefinDynShared n
+    , bench "deep"    $ nf countdownBluefinDynSharedDeep n
     ]
   ,
 #endif
@@ -83,6 +114,12 @@ countdown n = bgroup (show n)
     [ bench "shallow" $ nf countdownEffectfulDynLocal n
     , bench "deep"    $ nf countdownEffectfulDynLocalDeep n
     ]
+#ifdef VERSION_mtl
+  , bgroup "bluefin (local/dynamic/labeled/send)"
+    [ bench "shallow" $ nf countdownBluefinLabeledDynSendLocal n
+    , bench "deep"    $ nf countdownBluefinLabeledDynSendLocalDeep n
+    ]
+#endif
   , bgroup "effectful (local/dynamic/labeled/send)"
     [ bench "shallow" $ nf countdownEffectfulLabeledDynSendLocal n
     , bench "deep"    $ nf countdownEffectfulLabeledDynSendLocalDeep n
@@ -95,6 +132,12 @@ countdown n = bgroup (show n)
     [ bench "shallow" $ nf countdownEffectfulDynShared n
     , bench "deep"    $ nf countdownEffectfulDynSharedDeep n
     ]
+#ifdef VERSION_mtl
+  , bgroup "bluefin (shared/dynamic/labeled/send)"
+    [ bench "shallow" $ nf countdownBluefinLabeledDynSendShared n
+    , bench "deep"    $ nf countdownBluefinLabeledDynSendSharedDeep n
+    ]
+#endif
   , bgroup "effectful (shared/dynamic/labeled/send)"
     [ bench "shallow" $ nf countdownEffectfulLabeledDynSendShared n
     , bench "deep"    $ nf countdownEffectfulLabeledDynSendSharedDeep n

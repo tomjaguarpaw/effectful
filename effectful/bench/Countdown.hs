@@ -235,6 +235,46 @@ countdownBluefinLocalDeep n = B.runPureEff
   $ B.runState n
   $ \st -> bluefinDeep (programBluefinLocal st)
 
+-- Bluefin has no equivalent of Effectful's state operation, so this aliases
+-- the get/put implementation.
+countdownBluefinLocalSt :: Integer -> (Integer, Integer)
+countdownBluefinLocalSt = countdownBluefinLocal
+
+-- The deep variant likewise aliases the deep get/put implementation.
+countdownBluefinLocalDeepSt :: Integer -> (Integer, Integer)
+countdownBluefinLocalDeepSt = countdownBluefinLocalDeep
+
+-- Bluefin has no separate stateM operation, so this aliases the get/put
+-- program.
+countdownBluefinLocalStM :: Integer -> (Integer, Integer)
+countdownBluefinLocalStM = countdownBluefinLocal
+
+-- The deep variant likewise aliases the deep get/put implementation.
+countdownBluefinLocalDeepStM :: Integer -> (Integer, Integer)
+countdownBluefinLocalDeepStM = countdownBluefinLocalDeep
+
+-- Bluefin has no separate shared-state handler; runModify is runState.
+programBluefinShared :: e B.<: es => B.Modify Integer e -> B.Eff es Integer
+programBluefinShared st = do
+  n <- B.get st
+  if n <= 0
+    then pure n
+    else do
+      B.put st (n - 1)
+      programBluefinShared st
+{-# NOINLINE programBluefinShared #-}
+
+countdownBluefinShared :: Integer -> (Integer, Integer)
+countdownBluefinShared n = B.runPureEff
+  $ B.runModify n
+  $ \st -> programBluefinShared st
+
+countdownBluefinSharedDeep :: Integer -> (Integer, Integer)
+countdownBluefinSharedDeep n = B.runPureEff
+  $ bluefinDeep
+  $ B.runModify n
+  $ \st -> bluefinDeep (programBluefinShared st)
+
 bluefinRunDynamicLocal
   :: s
   -> (forall e. Bluefin_DynamicState s e -> B.Eff (e B.:& es) a)
@@ -245,20 +285,63 @@ bluefinRunDynamicLocal n k = B.runState n
     , bluefinDynamicPutImpl = B.put st
     }
 
+-- Bluefin has no separate local/shared state runner, so shared uses this
+-- handler for now. A true shared handler could be added later.
+bluefinRunDynamicShared
+  :: s
+  -> (forall e. Bluefin_DynamicState s e -> B.Eff (e B.:& es) a)
+  -> B.Eff es (a, s)
+bluefinRunDynamicShared = bluefinRunDynamicLocal
+
 countdownBluefinDynLocal :: Integer -> (Integer, Integer)
 countdownBluefinDynLocal n = B.runPureEff
   $ bluefinRunDynamicLocal n programBluefinDynamic
+
+countdownBluefinDynShared :: Integer -> (Integer, Integer)
+countdownBluefinDynShared n = B.runPureEff
+  $ bluefinRunDynamicShared n programBluefinDynamic
 
 countdownBluefinDynLocalDeep :: Integer -> (Integer, Integer)
 countdownBluefinDynLocalDeep n = B.runPureEff
   $ bluefinDeep
   $ bluefinRunDynamicLocal n (\st -> bluefinDeep (programBluefinDynamic st))
 
+countdownBluefinDynSharedDeep :: Integer -> (Integer, Integer)
+countdownBluefinDynSharedDeep n = B.runPureEff
+  $ bluefinDeep
+  $ bluefinRunDynamicShared n (\st -> bluefinDeep (programBluefinDynamic st))
+
+-- Bluefin handles are already explicit, so labeling needs no separate program.
+programBluefinLabeledDynamic :: e B.<: es => Bluefin_DynamicState Integer e -> B.Eff es Integer
+programBluefinLabeledDynamic = programBluefinDynamic
+{-# NOINLINE programBluefinLabeledDynamic #-}
+
+-- Bluefin has no separate labeled-send operation, so this aliases the
+-- dynamic program.
+programBluefinLabeledDynamicSend :: e B.<: es => Bluefin_DynamicState Integer e -> B.Eff es Integer
+programBluefinLabeledDynamicSend = programBluefinDynamic
+{-# NOINLINE programBluefinLabeledDynamicSend #-}
+
 bluefinRunDoubleStateLocal
   :: s
   -> (forall e. Bluefin_DynamicState s e -> B.Eff (e B.:& es) a)
   -> B.Eff es (a, s)
 bluefinRunDoubleStateLocal n k = bluefinRunDynamicLocal n
+  $ \st ->
+  B.useImplIn k Bluefin_DynamicState
+    { bluefinDynamicGetImpl = bluefinDynamicGet st
+    , bluefinDynamicPutImpl = bluefinDynamicPut st
+    }
+
+-- Bluefin has no separate shared dynamic runner, so this uses the local
+-- handler selected by bluefinRunDynamicShared.
+bluefinRunDoubleStateShared
+  :: s
+  -> (forall e. Bluefin_DynamicState s e -> B.Eff (e B.:& es) a)
+  -> B.Eff es (a, s)
+-- Bluefin has no separate shared dynamic runner, so this uses the local
+-- handler selected by bluefinRunDynamicShared.
+bluefinRunDoubleStateShared n k = bluefinRunDynamicShared n
   $ \st ->
   B.useImplIn k Bluefin_DynamicState
     { bluefinDynamicGetImpl = bluefinDynamicGet st
@@ -274,6 +357,52 @@ countdownBluefinDoubleDynLocalDeep n = B.runPureEff
   $ bluefinDeep
   $ bluefinRunDoubleStateLocal n
   $ \st -> bluefinDeep (programBluefinDynamic st)
+
+countdownBluefinDoubleDynShared :: Integer -> (Integer, Integer)
+countdownBluefinDoubleDynShared n = B.runPureEff
+  $ bluefinRunDoubleStateShared n programBluefinDynamic
+
+countdownBluefinDoubleDynSharedDeep :: Integer -> (Integer, Integer)
+countdownBluefinDoubleDynSharedDeep n = B.runPureEff
+  $ bluefinDeep
+  $ bluefinRunDoubleStateShared n
+  $ \st -> bluefinDeep (programBluefinDynamic st)
+
+countdownBluefinLabeledDynSendLocal :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynSendLocal n = B.runPureEff
+  $ bluefinRunDynamicLocal n programBluefinLabeledDynamicSend
+
+countdownBluefinLabeledDynSendShared :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynSendShared n = B.runPureEff
+  $ bluefinRunDynamicShared n programBluefinLabeledDynamicSend
+
+countdownBluefinLabeledDynSendLocalDeep :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynSendLocalDeep n = B.runPureEff
+  $ bluefinDeep
+  $ bluefinRunDynamicLocal n (\st -> bluefinDeep (programBluefinLabeledDynamicSend st))
+
+countdownBluefinLabeledDynSendSharedDeep :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynSendSharedDeep n = B.runPureEff
+  $ bluefinDeep
+  $ bluefinRunDynamicShared n (\st -> bluefinDeep (programBluefinLabeledDynamicSend st))
+
+countdownBluefinLabeledDynLocal :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynLocal n = B.runPureEff
+  $ bluefinRunDynamicLocal n programBluefinLabeledDynamic
+
+countdownBluefinLabeledDynShared :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynShared n = B.runPureEff
+  $ bluefinRunDynamicShared n programBluefinLabeledDynamic
+
+countdownBluefinLabeledDynLocalDeep :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynLocalDeep n = B.runPureEff
+  $ bluefinDeep
+  $ bluefinRunDynamicLocal n (\st -> bluefinDeep (programBluefinLabeledDynamic st))
+
+countdownBluefinLabeledDynSharedDeep :: Integer -> (Integer, Integer)
+countdownBluefinLabeledDynSharedDeep n = B.runPureEff
+  $ bluefinDeep
+  $ bluefinRunDynamicShared n (\st -> bluefinDeep (programBluefinLabeledDynamic st))
 
 #endif
 

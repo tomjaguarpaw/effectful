@@ -27,6 +27,34 @@ effects. This is crucial in order to get realistic results, as for any
 non-trivial, multi-module application the compiler will not be able to do this
 as that would essentially mean performing whole program specialization.
 
+## Running the Bluefin mtl benchmarks
+
+The Bluefin implementations in `effectful/bench/Countdown.hs` and
+`effectful/bench/FileSizes.hs` run the existing `NOINLINE`, monad-polymorphic
+programs through `DslBuilderEff`. Countdown uses a dynamic get/put capability
+interpreted with `Modify`. Filesize uses separate dynamic File and Logging
+capabilities, with Logging interpreted using `Modify [Text]`. The deep cases
+match Effectful's five Readers outside and five inside the dynamic handlers;
+File is handled outside Logging.
+
+`cabal.project.bluefin` selects GHC 9.10.3, `-O1`, the foreign-library benchmarks,
+and revision `edd04baf` of `tomjaguarpaw/bluefin`'s `performance` branch. That
+revision includes the `mapHandle = unsafeCoerce` optimization and both the
+outer-environment and inner-IO state-transformer `oneShot` annotations in
+`dslBuilderEff`.
+
+Run both benchmark groups together from the `effectful/` package directory:
+
+```sh
+cabal run bench --project-file=../cabal.project.bluefin -O1 -- \
+  -p '(countdown.1000.mtl || filesize.1000.mtl)' \
+  --stdev 2 --timeout 30s --ansi-tricks false
+```
+
+Keep the working directory fixed: the filesize benchmark stats the relative
+path `effectful.cabal`, so running from the repository root instead exercises
+missing-file handling.
+
 ## Results
 
 The code was compiled with GHC 9.2.4 and run on a Ryzen 9 5950x.
